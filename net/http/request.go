@@ -443,6 +443,7 @@ func (r *Request) multipartReader() (*multipart.Reader, error) {
 
 // isH2Upgrade reports whether r represents the http2 "client preface"
 // magic string.
+// In HTTP/2, each endpoint is required to send a connection preface as a final confirmation of the protocol in use and to establish the initial settings for the HTTP/2 connection. … the connection preface starts with the string "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n")
 func (r *Request) isH2Upgrade() bool {
 	return r.Method == "PRI" && len(r.Header) == 0 && r.URL.Path == "*" && r.Proto == "HTTP/2.0"
 }
