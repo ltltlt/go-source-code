@@ -24,10 +24,14 @@ type WaitGroup struct {
 	// 64-bit atomic operations require 64-bit alignment, but 32-bit
 	// compilers do not ensure it. So we allocate 12 bytes and then use
 	// the aligned 8 bytes in them as state.
+	// 64位原子操作需要64位对齐，分配12字节，总有8字节的数据是64位对齐的
+	// 新版将sema并入state1，因为现在state1有四字节无用
 	state1 [12]byte
 	sema   uint32
 }
 
+// 从state1中获取64位对齐的8字节
+// state 高32位存counter，低32位存waiter
 func (wg *WaitGroup) state() *uint64 {
 	if uintptr(unsafe.Pointer(&wg.state1))%8 == 0 {
 		return (*uint64)(unsafe.Pointer(&wg.state1))
@@ -43,7 +47,7 @@ func (wg *WaitGroup) state() *uint64 {
 // Note that calls with a positive delta that occur when the counter is zero
 // must happen before a Wait. Calls with a negative delta, or calls with a
 // positive delta that start when the counter is greater than zero, may happen
-// at any time.
+// at any time.(当counter是0时add一个正delta必须发生在wait之前，之后的add操作可以发生在任何时刻)
 // Typically this means the calls to Add should execute before the statement
 // creating the goroutine or other event to be waited for.
 // If a WaitGroup is reused to wait for several independent sets of events,
@@ -60,6 +64,8 @@ func (wg *WaitGroup) Add(delta int) {
 		race.Disable()
 		defer race.Enable()
 	}
+	// 原子操作整个state
+	// 64 bit 机器上int为64位，传入>= 2^31的delta会出问题
 	state := atomic.AddUint64(statep, uint64(delta)<<32)
 	v := int32(state >> 32)
 	w := uint32(state)
@@ -72,6 +78,7 @@ func (wg *WaitGroup) Add(delta int) {
 	if v < 0 {
 		panic("sync: negative WaitGroup counter")
 	}
+	// 第一次add时有waiter
 	if w != 0 && delta > 0 && v == int32(delta) {
 		panic("sync: WaitGroup misuse: Add called concurrently with Wait")
 	}

@@ -335,6 +335,7 @@ type stack struct {
 	hi uintptr
 }
 
+// goroutine
 type g struct {
 	// Stack parameters.
 	// stack describes the actual stack memory: [stack.lo, stack.hi).
@@ -399,7 +400,10 @@ type g struct {
 	gcAssistBytes int64
 }
 
+// 一个系统线程
 type m struct {
+	// g0 的栈是带有调度栈的goroutine，其栈是M对应的系统线程的栈
+	// 所有调度相关的代码会先切换到此goroutine的栈中执行
 	g0      *g     // goroutine with scheduling stack
 	morebuf gobuf  // gobuf arg to morestack
 	divmod  uint32 // div/mod denominator for arm - known to liblink
@@ -470,6 +474,8 @@ type m struct {
 	mOS
 }
 
+// 处理器, 每个g都由p来调度在m上运行
+// 其个数是GOMAXPROCS
 type p struct {
 	lock mutex
 
@@ -480,7 +486,7 @@ type p struct {
 	syscalltick uint32     // incremented on every system call
 	sysmontick  sysmontick // last tick observed by sysmon
 	m           muintptr   // back-link to associated m (nil if idle)
-	mcache      *mcache
+	mcache      *mcache    // memory span cache
 	racectx     uintptr
 
 	deferpool    [5][]*_defer // pool of available defer structs of different sizes (see panic.go)
@@ -490,6 +496,7 @@ type p struct {
 	goidcache    uint64
 	goidcacheend uint64
 
+	// p独立的goroutine
 	// Queue of runnable goroutines. Accessed without lock.
 	runqhead uint32
 	runqtail uint32
@@ -549,6 +556,7 @@ type p struct {
 	pad [sys.CacheLineSize]byte
 }
 
+// 全局调度者
 type schedt struct {
 	// accessed atomically. keep at top to ensure alignment on 32-bit systems.
 	goidgen  uint64

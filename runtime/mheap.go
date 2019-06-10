@@ -368,7 +368,7 @@ func recordspan(vh unsafe.Pointer, p unsafe.Pointer) {
 type spanClass uint8
 
 const (
-	numSpanClasses = _NumSizeClasses << 1
+	numSpanClasses = _NumSizeClasses << 1 // 67 span classes, 67 nospan classes
 	tinySpanClass  = spanClass(tinySizeClass<<1 | 1)
 )
 

@@ -67,6 +67,7 @@ const (
 	// and Darwin/ARM because they do not use a separate stack.
 	_StackSystem = sys.GoosWindows*512*sys.PtrSize + sys.GoosPlan9*512 + sys.GoosDarwin*sys.GoarchArm*1024
 
+	// 初始g的栈大小
 	// The minimum size of stack used by Go code
 	_StackMin = 2048
 

@@ -218,6 +218,7 @@ func main() {
 	}
 
 	exit(0)
+	// below cannot be reached, and is weird
 	for {
 		var x *int32
 		*x = 0
@@ -3245,6 +3246,7 @@ func newproc(siz int32, fn *funcval) {
 	})
 }
 
+// 创建g
 // Create a new g running fn with narg bytes of arguments starting
 // at argp. callerpc is the address of the go statement that created
 // this. The new g is put on the queue of g's waiting to run.
@@ -4182,7 +4184,7 @@ func checkdead() {
 // is forced to run.
 //
 // This is a variable for testing purposes. It normally doesn't change.
-var forcegcperiod int64 = 2 * 60 * 1e9
+var forcegcperiod int64 = 2 * 60 * 1e9 // 2 minute
 
 // Always runs without a P, so write barriers are not allowed.
 //
@@ -4211,10 +4213,11 @@ func sysmon() {
 	delay := uint32(0)
 	for {
 		if idle == 0 { // start with 20us sleep...
-			delay = 20
+			delay = 20 // 一开始休眠20微秒
 		} else if idle > 50 { // start doubling the sleep after 1ms...
 			delay *= 2
 		}
+		// 最多休眠10毫秒
 		if delay > 10*1000 { // up to 10ms
 			delay = 10 * 1000
 		}
@@ -4284,6 +4287,7 @@ func sysmon() {
 			idle++
 		}
 		// check if we need to force a GC
+		// 二分钟左右一强制gc，如果enablegc
 		if t := (gcTrigger{kind: gcTriggerTime, now: now}); t.test() && atomic.Load(&forcegc.idle) != 0 {
 			lock(&forcegc.lock)
 			forcegc.idle = 0

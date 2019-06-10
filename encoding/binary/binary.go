@@ -79,6 +79,8 @@ func (littleEndian) Uint64(b []byte) uint64 {
 }
 
 func (littleEndian) PutUint64(b []byte, v uint64) {
+	// the assemblely this function generate will only do index check once(maybe because this is in standard library), but if you write you own PutUint64 function which acts exactly like this, it will do index check 9 times, which is inefficiently.
+	// use `go tool objdump` to see assemblely code.
 	_ = b[7] // early bounds check to guarantee safety of writes below
 	b[0] = byte(v)
 	b[1] = byte(v >> 8)

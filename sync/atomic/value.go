@@ -26,14 +26,14 @@ type ifaceWords struct {
 // Load returns the value set by the most recent Store.
 // It returns nil if there has been no call to Store for this Value.
 func (v *Value) Load() (x interface{}) {
-	vp := (*ifaceWords)(unsafe.Pointer(v))
+	vp := (*ifaceWords)(unsafe.Pointer(v)) // 将v解释为*ifaceWords(Value和ifaceWords大小相同)
 	typ := LoadPointer(&vp.typ)
-	if typ == nil || uintptr(typ) == ^uintptr(0) {
+	if typ == nil || uintptr(typ) == ^uintptr(0) { // 全1代表正在进行第一次存储
 		// First store not yet completed.
 		return nil
 	}
 	data := LoadPointer(&vp.data)
-	xp := (*ifaceWords)(unsafe.Pointer(&x))
+	xp := (*ifaceWords)(unsafe.Pointer(&x)) // 将x解释为interface{}
 	xp.typ = typ
 	xp.data = data
 	return
@@ -42,6 +42,7 @@ func (v *Value) Load() (x interface{}) {
 // Store sets the value of the Value to x.
 // All calls to Store for a given Value must use values of the same concrete type.
 // Store of an inconsistent type panics, as does Store(nil).
+// 一个Value中存的内容必须是相同类型的
 func (v *Value) Store(x interface{}) {
 	if x == nil {
 		panic("sync/atomic: store of nil value into Value")
@@ -51,6 +52,7 @@ func (v *Value) Store(x interface{}) {
 	for {
 		typ := LoadPointer(&vp.typ)
 		if typ == nil {
+			// <- 可能在此typ被修改，所以使用CompareAndSwapPointer
 			// Attempt to start first store.
 			// Disable preemption so that other goroutines can use
 			// active spin wait to wait for completion; and so that
@@ -74,6 +76,7 @@ func (v *Value) Store(x interface{}) {
 		}
 		// First store completed. Check type and overwrite data.
 		if typ != xp.typ {
+			// 即使recover也不会不一致，因为只修改data pointer
 			panic("sync/atomic: store of inconsistently typed value into Value")
 		}
 		StorePointer(&vp.data, xp.data)

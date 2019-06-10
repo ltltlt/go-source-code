@@ -16,6 +16,8 @@ func closefd(fd int32) int32
 
 func exit(code int32)
 func nanotime() int64
+
+// sleep for usec microseconds
 func usleep(usec uint32)
 
 //go:noescape

@@ -323,8 +323,8 @@ type DB struct {
 	// connections in Stmt.css.
 	numClosed uint64
 
-	mu           sync.Mutex // protects following fields
-	freeConn     []*driverConn
+	mu           sync.Mutex    // protects following fields
+	freeConn     []*driverConn // 闲置连接队列
 	connRequests map[uint64]chan connRequest
 	nextRequest  uint64 // Next key to use in connRequests.
 	numOpen      int    // number of opened and pending open connections
@@ -1051,6 +1051,7 @@ func (db *DB) conn(ctx context.Context, strategy connReuseStrategy) (*driverConn
 
 	// Out of free connections or we were asked not to use one. If we're not
 	// allowed to open any more connections, make a request and wait.
+	// 无闲置连接, 且达到最大打开连接数, 发起一个请求, 等待一个连接被回收(see putConnDBLocked)
 	if db.maxOpen > 0 && db.numOpen >= db.maxOpen {
 		// Make the connRequest channel. It's buffered so that the
 		// connectionOpener doesn't block while waiting for the req to be read.
@@ -1234,6 +1235,7 @@ func (db *DB) putConnDBLocked(dc *driverConn, err error) bool {
 		return false
 	}
 	if c := len(db.connRequests); c > 0 {
+		// 响应一个请求, 回收一个连接
 		var req chan connRequest
 		var reqKey uint64
 		for reqKey, req = range db.connRequests {
@@ -1248,7 +1250,7 @@ func (db *DB) putConnDBLocked(dc *driverConn, err error) bool {
 			err:  err,
 		}
 		return true
-	} else if err == nil && !db.closed && db.maxIdleConnsLocked() > len(db.freeConn) {
+	} else if err == nil && !db.closed && db.maxIdleConnsLocked() > len(db.freeConn) { // 未达到最大闲置连接, 将连接放到闲置队列
 		db.freeConn = append(db.freeConn, dc)
 		db.startCleanerLocked()
 		return true
