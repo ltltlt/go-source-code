@@ -226,6 +226,7 @@ func (pp puintptr) ptr() *p { return (*p)(unsafe.Pointer(pp)) }
 func (pp *puintptr) set(p *p) { *pp = puintptr(unsafe.Pointer(p)) }
 
 // muintptr is a *m that is not tracked by the garbage collector.
+// 不被垃圾收集器跟踪
 //
 // Because we do free Ms, there are some additional constrains on
 // muintptrs:
@@ -274,6 +275,7 @@ type gobuf struct {
 
 // sudog represents a g in a wait list, such as for sending/receiving
 // on a channel.
+// 代表在等待list中的g
 //
 // sudog is necessary because the g ↔ synchronization object relation
 // is many-to-many. A g can be on many wait lists, so there may be
@@ -336,6 +338,8 @@ type stack struct {
 }
 
 // goroutine
+// 表示goroutine，存储了goroutine的执行stack信息、goroutine状态以及goroutine的任务函数等
+// 可重用
 type g struct {
 	// Stack parameters.
 	// stack describes the actual stack memory: [stack.lo, stack.hi).
@@ -348,20 +352,23 @@ type g struct {
 	stackguard0 uintptr // offset known to liblink
 	stackguard1 uintptr // offset known to liblink
 
-	_panic         *_panic // innermost panic - offset known to liblink
-	_defer         *_defer // innermost defer
-	m              *m      // current m; offset known to arm liblink
-	sched          gobuf
-	syscallsp      uintptr        // if status==Gsyscall, syscallsp = sched.sp to use during gc
-	syscallpc      uintptr        // if status==Gsyscall, syscallpc = sched.pc to use during gc
-	stktopsp       uintptr        // expected sp at top of stack, to check in traceback
-	param          unsafe.Pointer // passed parameter on wakeup
-	atomicstatus   uint32
-	stackLock      uint32 // sigprof/scang lock; TODO: fold in to atomicstatus
-	goid           int64
-	waitsince      int64  // approx time when the g become blocked
-	waitreason     string // if status==Gwaiting
-	schedlink      guintptr
+	_panic       *_panic // innermost panic - offset known to liblink
+	_defer       *_defer // innermost defer
+	m            *m      // current m; offset known to arm liblink
+	sched        gobuf
+	syscallsp    uintptr        // if status==Gsyscall, syscallsp = sched.sp to use during gc
+	syscallpc    uintptr        // if status==Gsyscall, syscallpc = sched.pc to use during gc
+	stktopsp     uintptr        // expected sp at top of stack, to check in traceback
+	param        unsafe.Pointer // passed parameter on wakeup
+	atomicstatus uint32
+	stackLock    uint32 // sigprof/scang lock; TODO: fold in to atomicstatus
+	goid         int64
+	waitsince    int64  // approx time when the g become blocked
+	waitreason   string // if status==Gwaiting
+	schedlink    guintptr
+
+	// 抢占位, 如果被设置, 这个G的下一次函数调用, runtime就将其抢占, 放入P的local runq中，等待被下次调用
+	// retake -> preemptone中会设置
 	preempt        bool     // preemption signal, duplicates stackguard0 = stackpreempt
 	paniconfault   bool     // panic (instead of crash) on unexpected fault address
 	preemptscan    bool     // preempted g does scan for gc
@@ -400,7 +407,9 @@ type g struct {
 	gcAssistBytes int64
 }
 
-// 一个系统线程
+// M代表着真正的执行计算资源(os thread)
+// 在绑定有效的p后，进入schedule循环；而schedule循环的机制大致是从各种队列、p的本地队列中获取G，切换到G的执行栈上并执行G的函数，调用goexit做清理工作并回到m，如此反复
+// M并不保留G状态，这是G可以跨M调度的基础。
 type m struct {
 	// g0 的栈是带有调度栈的goroutine，其栈是M对应的系统线程的栈
 	// 所有调度相关的代码会先切换到此goroutine的栈中执行
@@ -476,6 +485,8 @@ type m struct {
 
 // 处理器, 每个g都由p来调度在m上运行
 // 其个数是GOMAXPROCS
+// P的数量决定了系统内最大可并行的G的数量（前提：系统的物理cpu核数>=P的数量）
+// P的最大作用还是其拥有的各种G对象队列、链表、一些cache和状态
 type p struct {
 	lock mutex
 
@@ -500,7 +511,7 @@ type p struct {
 	// Queue of runnable goroutines. Accessed without lock.
 	runqhead uint32
 	runqtail uint32
-	runq     [256]guintptr
+	runq     [256]guintptr // wait for run queue
 	// runnext, if non-nil, is a runnable G that was ready'd by
 	// the current G and should be run next instead of what's in
 	// runq if there's time remaining in the running G's time
@@ -513,9 +524,11 @@ type p struct {
 	runnext guintptr
 
 	// Available G's (status == Gdead)
+	// G可被重用
 	gfree    *g
 	gfreecnt int32
 
+	// g 的等待列表
 	sudogcache []*sudog
 	sudogbuf   [128]*sudog
 

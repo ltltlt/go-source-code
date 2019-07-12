@@ -133,6 +133,7 @@ func testAtomic64() {
 	}
 }
 
+// runtime启动检查
 func check() {
 	var (
 		a     int8

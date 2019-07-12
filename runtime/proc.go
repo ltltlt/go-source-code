@@ -468,7 +468,9 @@ const (
 )
 
 // The bootstrap sequence is:
+// 基本算是程序启动入口
 //
+// 	先前还会调check, args
 //	call osinit
 //	call schedinit
 //	make & queue new G
@@ -490,7 +492,7 @@ func schedinit() {
 	stackinit()
 	mallocinit()
 	mcommoninit(_g_.m)
-	alginit()       // maps must not be used before this call
+	alginit()       // maps must not be used before this call, 因为这个函数会初始化hash算法和一些变量
 	modulesinit()   // provides activeModules
 	typelinksinit() // uses maps, activeModules
 	itabsinit()     // uses activeModules
@@ -4187,6 +4189,7 @@ func checkdead() {
 var forcegcperiod int64 = 2 * 60 * 1e9 // 2 minute
 
 // Always runs without a P, so write barriers are not allowed.
+// 系统监控，运行在单独os thread(m) 上
 //
 //go:nowritebarrierrec
 func sysmon() {
@@ -4319,6 +4322,7 @@ type sysmontick struct {
 // preempted.
 const forcePreemptNS = 10 * 1000 * 1000 // 10ms
 
+// 抢占调度
 func retake(now int64) uint32 {
 	n := 0
 	// Prevent allp slice changes. This lock will be completely
@@ -4370,6 +4374,7 @@ func retake(now int64) uint32 {
 			lock(&allpLock)
 		} else if s == _Prunning {
 			// Preempt G if it's running for too long.
+			// 尽力而为地抢占运行太久的G
 			t := int64(_p_.schedtick)
 			if int64(pd.schedtick) != t {
 				pd.schedtick = uint32(t)
@@ -4414,6 +4419,7 @@ func preemptall() bool {
 // The actual preemption will happen at some point in the future
 // and will be indicated by the gp->status no longer being
 // Grunning
+// 抢占一个P上的goroutine, 就简单设置个标记, 尽力而为
 func preemptone(_p_ *p) bool {
 	mp := _p_.m.ptr()
 	if mp == nil || mp == getg().m {

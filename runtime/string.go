@@ -206,6 +206,7 @@ func slicerunetostring(buf *tmpBuf, a []rune) string {
 	return s[:size2]
 }
 
+// 字符串结构
 type stringStruct struct {
 	str unsafe.Pointer
 	len int
