@@ -14,6 +14,10 @@ var buildVersion = sys.TheVersion
 
 // Goroutine scheduler
 // The scheduler's job is to distribute ready-to-run goroutines over worker threads.
+// 调度器的工作是分发准备工作的goroutine到worker线程(系统线程)
+// https://povilasv.me/go-scheduler/#
+// https://news.ycombinator.com/item?id=12459841
+// https://tonybai.com/2017/06/23/an-intro-about-goroutine-scheduler/
 //
 // The main concepts are:
 // G - goroutine.
@@ -21,6 +25,21 @@ var buildVersion = sys.TheVersion
 // P - processor, a resource that is required to execute Go code.
 //     M must have an associated P to execute Go code, however it can be
 //     blocked or in a syscall w/o an associated P.
+// 或许M是主动方，其要获取G来执行需要通过P
+// M想要执行G得先关联一个P, 所以通过GOMAXPROCS可以控制同一时间最大并行量(即P的数目)
+// 但不是M的数目, 因为一些os thread可能在系统调用时阻塞了, M的数目一般>GOMAXPROCS
+
+// 当一个G进行blocking system call时，运行其的M也会被阻塞(必须得有一个os thread
+// 阻塞以等待返回, 因为许多系统调用不能poll(比如创建一个文件)), 当P会释放，以绑定其他
+// M，这样P上的其他G会继续被执行
+
+// 当G进行网络操作send/recv时，G阻塞，这个fd会被传给net poller，这个os thread等待
+// 一堆fd激活;G阻塞，运行这个G的M不阻塞（net poller帮其等待fd的激活），这个M可以继续
+// 执行这个P上的其他G（如果这个P上没有其他G，这个P会随便选一个其他P，偷走一半G；不过如果
+// 完全没有G可供运行，这个M会解绑P进入sleep状态)
+
+// 当G进行channel操作时，情况和网络操作很类似
+
 //
 // Design doc at https://golang.org/s/go11sched.
 
@@ -4106,6 +4125,7 @@ func incidlelocked(v int32) {
 }
 
 // Check for deadlock situation.
+// 检查是否有死锁，通过检查正在运行的M是否为0
 // The check is based on number of running M's, if 0 -> deadlock.
 // sched.lock must be held.
 func checkdead() {
@@ -4189,7 +4209,7 @@ func checkdead() {
 var forcegcperiod int64 = 2 * 60 * 1e9 // 2 minute
 
 // Always runs without a P, so write barriers are not allowed.
-// 系统监控，运行在单独os thread(m) 上
+// 系统监控，运行在单独os thread(m) 上, 不用P运行
 //
 //go:nowritebarrierrec
 func sysmon() {
@@ -4200,12 +4220,13 @@ func sysmon() {
 
 	// If a heap span goes unused for 5 minutes after a garbage collection,
 	// we hand it back to the operating system.
+	// 如果一块span在垃圾回收后五分钟没有被使用，把其还给操作系统(不是立即还)
 	scavengelimit := int64(5 * 60 * 1e9)
 
 	if debug.scavenge > 0 {
 		// Scavenge-a-lot for testing.
 		forcegcperiod = 10 * 1e6
-		scavengelimit = 20 * 1e6
+		scavengelimit = 20 * 1e6 // 20 ms
 	}
 
 	lastscavenge := nanotime()
@@ -4524,6 +4545,7 @@ func schedtrace(detailed bool) {
 }
 
 // Put mp on midle list.
+// 把这个md放到idle的m列表
 // Sched must be locked.
 // May run during STW, so write barriers are not allowed.
 //go:nowritebarrierrec
