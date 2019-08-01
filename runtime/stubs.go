@@ -14,7 +14,7 @@ func add(p unsafe.Pointer, x uintptr) unsafe.Pointer {
 
 // getg returns the pointer to the current g.
 // The compiler rewrites calls to this function into instructions
-// that fetch the g directly (from TLS or from the dedicated register).
+// that fetch the g directly (from TLS(thread local storage) or from the dedicated register).
 // 获取指向当前g的指针, 指令运行时由编译器生成
 func getg() *g
 
@@ -35,6 +35,7 @@ func getg() *g
 func mcall(fn func(*g))
 
 // systemstack runs fn on a system stack.
+// 在系统栈上执行fn
 // If systemstack is called from the per-OS-thread (g0) stack, or
 // if systemstack is called from the signal handling (gsignal) stack,
 // systemstack calls fn directly and returns.
@@ -157,10 +158,13 @@ func procyield(cycles uint32)
 type neverCallThisFunction struct{}
 
 // goexit is the return stub at the top of every goroutine call stack.
+// goexit是每个goroutine调用栈顶的桩
 // Each goroutine stack is constructed as if goexit called the
 // goroutine's entry point function, so that when the entry point
 // function returns, it will return to goexit, which will call goexit1
 // to perform the actual exit.
+// 每个goroutine的栈都被组织成好像goexit调用goroutine的入口函数, 当
+// 入口函数返回, 会回到goexit
 //
 // This function must never be called directly. Call goexit1 instead.
 // gentraceback assumes that goexit terminates the stack. A direct

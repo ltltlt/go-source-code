@@ -1,0 +1,37 @@
+[
+	{
+		"path": "$ROOTPATH$/proc.go",
+		"bookmarks": [
+			{
+				"line": 500,
+				"column": 0,
+				"label": "go runtime start entry"
+			}
+		]
+	},
+	{
+		"path": "$ROOTPATH$/asm_amd64.s",
+		"bookmarks": [
+			{
+				"line": 245,
+				"column": 8,
+				"label": "start sequence"
+			},
+			{
+				"line": 257,
+				"column": 19,
+				"label": "call runtime.newproc"
+			}
+		]
+	},
+	{
+		"path": "$ROOTPATH$/rt0_linux_arm64.s",
+		"bookmarks": [
+			{
+				"line": 90,
+				"column": 5,
+				"label": "貌似是万恶之源"
+			}
+		]
+	}
+]

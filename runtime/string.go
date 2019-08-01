@@ -290,6 +290,7 @@ func gobytes(p *byte, n int) []byte {
 	return x
 }
 
+// 把一个c style string(byte array terminate by null)转为go string
 func gostring(p *byte) string {
 	l := findnull(p)
 	if l == 0 {

@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// channel 定义及实现, channel的发送和接收goroutine使用队列
+// 先入队的优先级高
+
 package runtime
 
 // This file contains the implementation of Go channels.
@@ -231,7 +234,7 @@ func chansend(c *hchan, ep unsafe.Pointer, block bool, callerpc uintptr) bool {
 	gp.waiting = mysg
 	gp.param = nil
 	c.sendq.enqueue(mysg)
-	goparkunlock(&c.lock, "chan send", traceEvGoBlockSend, 3)
+	goparkunlock(&c.lock, "chan send", traceEvGoBlockSend, 3) // 这还有点像信号量, wait(unlock lock, wait for notify), notify(notify a waiting thread)
 
 	// someone woke us up.
 	if mysg != gp.waiting {
@@ -661,7 +664,7 @@ func reflect_chansend(c *hchan, elem unsafe.Pointer, nb bool) (selected bool) {
 
 //go:linkname reflect_chanrecv reflect.chanrecv
 func reflect_chanrecv(c *hchan, nb bool, elem unsafe.Pointer) (selected bool, received bool) {
-	return chanrecv(c, elem, !nb)
+	return false, chanrecv(c, elem, !nb)
 }
 
 //go:linkname reflect_chanlen reflect.chanlen
