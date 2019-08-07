@@ -153,6 +153,8 @@ func breakpoint()
 // site for justification.
 func reflectcall(argtype *_type, fn, arg unsafe.Pointer, argsize uint32, retoffset uint32)
 
+// 循环一定次数, 每次循环都执行pause指令
+// https://www.felixcloutier.com/x86/pause
 func procyield(cycles uint32)
 
 type neverCallThisFunction struct{}

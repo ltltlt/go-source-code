@@ -25,7 +25,7 @@ import (
 const (
 	mutex_unlocked = 0
 	mutex_locked   = 1
-	mutex_sleeping = 2
+	mutex_sleeping = 2 // 非常可能有至少一个睡眠线程(调用futex)
 
 	active_spin     = 4
 	active_spin_cnt = 30
@@ -43,6 +43,7 @@ func key32(p *uintptr) *uint32 {
 	return (*uint32)(unsafe.Pointer(p))
 }
 
+// 如果发生阻塞, 会阻塞g, p, m(由于系统调用)
 func lock(l *mutex) {
 	gp := getg()
 
@@ -52,6 +53,7 @@ func lock(l *mutex) {
 	gp.m.locks++
 
 	// Speculative grab for lock.
+	// 尝试将key改为锁定状态, 如果原状态是未锁定, 则表示此线程得到了锁, 直接返回即可
 	v := atomic.Xchg(key32(&l.key), mutex_locked)
 	if v == mutex_unlocked {
 		return
@@ -68,22 +70,26 @@ func lock(l *mutex) {
 
 	// On uniprocessors, no point spinning.
 	// On multiprocessors, spin for ACTIVE_SPIN attempts.
+	// 单处理器时, 不会自旋; 多处理器会自选active_spin次
 	spin := 0
 	if ncpu > 1 {
 		spin = active_spin
 	}
 	for {
 		// Try for lock, spinning.
+		// 自旋一定次数
 		for i := 0; i < spin; i++ {
 			for l.key == mutex_unlocked {
 				if atomic.Cas(key32(&l.key), mutex_unlocked, wait) {
 					return
 				}
 			}
+			// 这个函数会循环active_spin_cnt次数, 每次都会执行pause指令
 			procyield(active_spin_cnt)
 		}
 
 		// Try for lock, rescheduling.
+		// 让处理器重新调度一定次数
 		for i := 0; i < passive_spin; i++ {
 			for l.key == mutex_unlocked {
 				if atomic.Cas(key32(&l.key), mutex_unlocked, wait) {
@@ -99,7 +105,8 @@ func lock(l *mutex) {
 			return
 		}
 		wait = mutex_sleeping
-		futexsleep(key32(&l.key), mutex_sleeping, -1)
+		// 只有状态为mutex_sleeping时才被内核阻塞
+		futexsleep(key32(&l.key), mutex_sleeping, -1) // 可能被错误唤醒, 所以要在循环里
 	}
 }
 
@@ -108,6 +115,7 @@ func unlock(l *mutex) {
 	if v == mutex_unlocked {
 		throw("unlock of unlocked lock")
 	}
+	// 只有原状态为mutex_sleeping时才唤醒一个线程
 	if v == mutex_sleeping {
 		futexwakeup(key32(&l.key), 1)
 	}

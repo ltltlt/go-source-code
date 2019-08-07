@@ -101,6 +101,8 @@ const (
 // as fast as spin locks (just a few user-level instructions),
 // but on the contention path they sleep in the kernel.
 // A zeroed Mutex is unlocked (no need to initialize each lock).
+// 互相排斥的锁. 无竞争时, 就像自旋锁一样快(只是几条用户态指令)
+// 但有竞争时, 其在内核态睡眠. 一个0值mutex是未锁定的, 没必要初始化每个锁
 type mutex struct {
 	// Futex-based impl treats it as uint32 key,
 	// while sema-based impl as M* waitm.
