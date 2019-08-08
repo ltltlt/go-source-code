@@ -3,11 +3,14 @@
 // license that can be found in the LICENSE file.
 
 // Semaphore implementation exposed to Go.
+// 暴露的Semaphore实现
 // Intended use is provide a sleep and wakeup
 // primitive that can be used in the contended case
 // of other synchronization primitives.
 // Thus it targets the same goal as Linux's futex,
 // but it has much simpler semantics.
+// 目地用处是提供一个睡眠和唤醒的操作, 其可以用于其他同步原语的原语
+// 因此, 其目地和linux的futex是一样的, 只是有者更简单的语义
 //
 // That is, don't think of these as semaphores.
 // Think of them as a way to implement sleep and wakeup

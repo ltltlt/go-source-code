@@ -201,6 +201,7 @@ func main() {
 		cgocall(_cgo_notify_runtime_init_done, nil)
 	}
 
+	// main包(用户代码入口)的init函数, 编译器应该会将main包里所有的init合并到一个init里
 	fn := main_init // make an indirect call, as the linker doesn't know the address of the main package when laying down the runtime
 	fn()
 	close(main_init_done)
@@ -213,6 +214,7 @@ func main() {
 		// has a main, but it is not executed.
 		return
 	}
+	// main包里的main, 用户代码的入口
 	fn = main_main // make an indirect call, as the linker doesn't know the address of the main package when laying down the runtime
 	fn()
 	if raceenabled {
@@ -237,7 +239,7 @@ func main() {
 	}
 
 	exit(0)
-	// below cannot be reached, and is weird
+	// below cannot be reached, and is weird(agreed)
 	for {
 		var x *int32
 		*x = 0
@@ -323,6 +325,7 @@ func goready(gp *g, traceskip int) {
 	})
 }
 
+// 新建一个sudog
 //go:nosplit
 func acquireSudog() *sudog {
 	// Delicate dance: the semaphore implementation calls
@@ -487,7 +490,6 @@ const (
 )
 
 // The bootstrap sequence is:
-// 基本算是程序启动入口
 //
 // 	先前还会调check, args
 //	call osinit
@@ -2099,6 +2101,7 @@ func handoffp(_p_ *p) {
 // Called when a G is made runnable (newproc, ready).
 func wakep() {
 	// be conservative about spinning threads
+	// 多线程(m)同时调用产生新m时只有一个真的创建m
 	if !atomic.Cas(&sched.nmspinning, 0, 1) {
 		return
 	}
@@ -3253,14 +3256,24 @@ func malg(stacksize int32) *g {
 }
 
 // Create a new g running fn with siz bytes of arguments.
+// 创建一个g运行fn
 // Put it on the queue of g's waiting to run.
+// 将其放到g的等待运行队列
 // The compiler turns a go statement into a call to this.
+// 编译器将一个go语句转为这个函数的调用
 // Cannot split the stack because it assumes that the arguments
 // are available sequentially after &fn; they would not be
 // copied if a stack split occurred.
+// 不能split这个栈因为其假设参数是连续的在&fn之后
+// 第一个goroutine的fn指向mainPC, 其指向runtime.main, 且siz==0
+// 当用go语句创建goroutine时, 编译器会将其转为对此函数的调用, fn指向函数体的机器码
+// 调用这个函数时栈结构从下往上是
+// extra args pass to func
+// funcval
+// sizeof func + extra args(siz)
 //go:nosplit
 func newproc(siz int32, fn *funcval) {
-	argp := add(unsafe.Pointer(&fn), sys.PtrSize)
+	argp := add(unsafe.Pointer(&fn), sys.PtrSize) // 参数指针
 	pc := getcallerpc()
 	systemstack(func() {
 		newproc1(fn, (*uint8)(argp), siz, pc)
@@ -3280,7 +3293,7 @@ func newproc1(fn *funcval, argp *uint8, narg int32, callerpc uintptr) {
 	}
 	_g_.m.locks++ // disable preemption because it can be holding p in a local var
 	siz := narg
-	siz = (siz + 7) &^ 7
+	siz = (siz + 7) &^ 7 // 向上取8倍数
 
 	// We could allocate a larger initial stack if necessary.
 	// Not worth it: this is almost always an error.
@@ -3290,8 +3303,8 @@ func newproc1(fn *funcval, argp *uint8, narg int32, callerpc uintptr) {
 		throw("newproc: function arguments too large for new goroutine")
 	}
 
-	_p_ := _g_.m.p.ptr()
-	newg := gfget(_p_)
+	_p_ := _g_.m.p.ptr() // 可以看出新建的g还是关联建这个g的g的p
+	newg := gfget(_p_)   // 从p的free list中拿一个g
 	if newg == nil {
 		newg = malg(_StackMin)
 		casgstatus(newg, _Gidle, _Gdead)
@@ -3316,6 +3329,7 @@ func newproc1(fn *funcval, argp *uint8, narg int32, callerpc uintptr) {
 		spArg += sys.MinFrameSize
 	}
 	if narg > 0 {
+		// 将参数拷贝到g的栈上
 		memmove(unsafe.Pointer(spArg), unsafe.Pointer(argp), uintptr(narg))
 		// This is a stack-to-stack copy. If write barriers
 		// are enabled and the source stack is grey (the
@@ -3367,6 +3381,7 @@ func newproc1(fn *funcval, argp *uint8, narg int32, callerpc uintptr) {
 	}
 	runqput(_p_, newg, true)
 
+	// 如果程序启动且有空闲的p, 且无自旋的m, 则有可能新建一个m, 这会保证有足够的m运行p
 	if atomic.Load(&sched.npidle) != 0 && atomic.Load(&sched.nmspinning) == 0 && mainStarted {
 		wakep()
 	}
@@ -3417,6 +3432,7 @@ func gfput(_p_ *p, gp *g) {
 
 // Get from gfree list.
 // If local list is empty, grab a batch from global list.
+// 从gfree列表中拿个g, 如果本地列表是空, 从全局列表中拿一个
 func gfget(_p_ *p) *g {
 retry:
 	gp := _p_.gfree
@@ -4703,6 +4719,10 @@ const randomizeScheduler = raceenabled
 // If next is true, runqput puts g in the _p_.runnext slot.
 // If the run queue is full, runnext puts g on the global queue.
 // Executed only by the owner P.
+// runqput 把g放到本地运行队列(p的运行队列)
+// 如果next为false, 会将g放到运行队列的尾部
+// 如果next为true, 会把其放到runnext, 原先的runnext的会放到队列中
+// 如果运行队列满了, 将g和p中的一批放到全局队列
 func runqput(_p_ *p, gp *g, next bool) {
 	if randomizeScheduler && next && fastrand()%2 == 0 {
 		next = false
@@ -4722,14 +4742,14 @@ func runqput(_p_ *p, gp *g, next bool) {
 	}
 
 retry:
-	h := atomic.Load(&_p_.runqhead) // load-acquire, synchronize with consumers
+	h := atomic.Load(&_p_.runqhead) // load-acquire, synchronize with consumers, consumer应该指m
 	t := _p_.runqtail
 	if t-h < uint32(len(_p_.runq)) {
 		_p_.runq[t%uint32(len(_p_.runq))].set(gp)
 		atomic.Store(&_p_.runqtail, t+1) // store-release, makes the item available for consumption
 		return
 	}
-	if runqputslow(_p_, gp, h, t) {
+	if runqputslow(_p_, gp, h, t) { // true表示gp已经加到全局队列
 		return
 	}
 	// the queue is not full, now the put above must succeed
@@ -4751,6 +4771,7 @@ func runqputslow(_p_ *p, gp *g, h, t uint32) bool {
 		batch[i] = _p_.runq[(h+i)%uint32(len(_p_.runq))].ptr()
 	}
 	if !atomic.Cas(&_p_.runqhead, h, h+n) { // cas-release, commits consume
+		// 有其他地方在更新runqhead, 则啥都不做
 		return false
 	}
 	batch[n] = gp

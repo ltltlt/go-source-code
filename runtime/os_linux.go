@@ -387,6 +387,9 @@ func raiseproc(sig uint32)
 
 //go:noescape
 func sched_getaffinity(pid, len uintptr, buf *byte) int32
+
+// 看了汇编代码, 调用syscall 0x18即sched_yield, 这个系统调用指示调用线程放弃cpu. 线程被放到优先队列尾部
+// see linux `man sched_yield`
 func osyield()
 
 //go:nosplit

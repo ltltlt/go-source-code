@@ -211,6 +211,7 @@ func readgogc() int32 {
 // gcenable is called after the bulk of the runtime initialization,
 // just before we're about to start letting user code run.
 // It kicks off the background sweeper goroutine and enables GC.
+// 在一堆运行时初始化后执行，启动垃圾清理goroutine并且开启gc
 func gcenable() {
 	c := make(chan int, 1)
 	go bgsweep(c)

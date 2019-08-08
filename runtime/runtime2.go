@@ -101,6 +101,8 @@ const (
 // as fast as spin locks (just a few user-level instructions),
 // but on the contention path they sleep in the kernel.
 // A zeroed Mutex is unlocked (no need to initialize each lock).
+// 互相排斥的锁. 无竞争时, 就像自旋锁一样快(只是几条用户态指令)
+// 但有竞争时, 其在内核态睡眠. 一个0值mutex是未锁定的, 没必要初始化每个锁
 type mutex struct {
 	// Futex-based impl treats it as uint32 key,
 	// while sema-based impl as M* waitm.
@@ -349,8 +351,8 @@ type g struct {
 	// It is stack.lo+StackGuard on g0 and gsignal stacks.
 	// It is ~0 on other goroutine stacks, to trigger a call to morestackc (and crash).
 	stack       stack   // offset known to runtime/cgo
-	stackguard0 uintptr // offset known to liblink
-	stackguard1 uintptr // offset known to liblink
+	stackguard0 uintptr // offset known to liblink, 检查栈空间是否足够的值, 低于这个值会扩张栈, 0是go代码使用的
+	stackguard1 uintptr // offset known to liblink, 1是给原生代码用的
 
 	_panic       *_panic // innermost panic - offset known to liblink
 	_defer       *_defer // innermost defer
@@ -408,9 +410,11 @@ type g struct {
 }
 
 // M代表着真正的执行计算资源(os thread)
-// 在绑定有效的p后，进入schedule循环；而schedule循环的机制大致是从各种队列、p的本地队列中获取G，切换到G的执行栈上并执行G的函数，调用goexit做清理工作并回到m，如此反复
+// 在绑定有效的p后，进入schedule循环
+// 而schedule循环的机制大致是从各种队列、p的本地队列中获取G，切换到G的执行栈上并执行G的函数，调用goexit做清理工作并回到m，如此反复
 // M并不保留G状态，这是G可以跨M调度的基础。
 type m struct {
+	// g0是负责调度这个m的g
 	// g0 的栈是带有调度栈的goroutine，其栈是M对应的系统线程的栈
 	// 所有调度相关的代码会先切换到此goroutine的栈中执行
 	g0      *g     // goroutine with scheduling stack

@@ -1062,6 +1062,7 @@ func (db *DB) conn(ctx context.Context, strategy connReuseStrategy) (*driverConn
 
 		// Timeout the connection request with the context.
 		select {
+		// 等待连接打开过程中超时了
 		case <-ctx.Done():
 			// Remove the connection request and ensure no value has been sent
 			// on it after removing.
@@ -1099,6 +1100,8 @@ func (db *DB) conn(ctx context.Context, strategy connReuseStrategy) (*driverConn
 		}
 	}
 
+	// 无闲置连接, 不过未达到最大打开连接数, 直接打开一个新连接即可
+	// 这里已经获得锁了
 	db.numOpen++ // optimistically
 	db.mu.Unlock()
 	ci, err := db.connector.Connect(ctx)

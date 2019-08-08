@@ -6,7 +6,7 @@ details of particular interfaces.
 Scheduler structures
 ====================
 
-The scheduler manages three types of resources that pervade the
+The scheduler manages three types of resources that pervade(遍布) the
 runtime: Gs, Ms, and Ps. It's important to understand these even if
 you're not working on the scheduler.
 
@@ -16,11 +16,15 @@ Gs, Ms, Ps
 A "G" is simply a goroutine. It's represented by type `g`. When a
 goroutine exits, its `g` object is returned to a pool of free `g`s and
 can later be reused for some other goroutine.
+一个G代表一个goroutine, 使用类型g表示, 当一个goroutine退出, 其g对象返回
+free g列表，并且之后可重用. 推论1: goroutine新建和毁灭的开销低
 
 An "M" is an OS thread that can be executing user Go code, runtime
 code, a system call, or be idle. It's represented by type `m`. There
 can be any number of Ms at a time since any number of threads may be
 blocked in system calls.
+M代表一个OS thread, 有几种状态: 执行Go代码, 执行runtime代码, 系统调用或者空闲
+任意时间可以有任意多的M, 因为可以有任意多个线程阻塞在系统调用
 
 Finally, a "P" represents the resources required to execute user Go
 code, such as scheduler and memory allocator state. It's represented
@@ -29,6 +33,7 @@ like a CPU in the OS scheduler and the contents of the `p` type like
 per-CPU state. This is a good place to put state that needs to be
 sharded for efficiency, but doesn't need to be per-thread or
 per-goroutine.
+P代表需要执行Go代码的资源, 比如调度器和内存分配状态. 恰好有GOMAXPROCS个P
 
 The scheduler's job is to match up a G (the code to execute), an M
 (where to execute it), and a P (the rights and resources to execute
@@ -36,10 +41,15 @@ it). When an M stops executing user Go code, for example by entering a
 system call, it returns its P to the idle P pool. In order to resume
 executing user Go code, for example on return from a system call, it
 must acquire a P from the idle pool.
+调度器的任务是配对G, M和P. 当M停止执行用户Go代码(比如系统调用阻塞), 其会将其P返回
+闲置的P池, 使得这个P能被其他M获得, 这个P上的其他goroutine可以被执行. 要恢复执行
+用户Go代码, 比如从系统调用返回, 其必须从空闲P池中获取一个P.
 
 All `g`, `m`, and `p` objects are heap allocated, but are never freed,
 so their memory remains type stable. As a result, the runtime can
 avoid write barriers in the depths of the scheduler.
+所有的`g`, `m`, `p`对象都是在堆上分配的, 永远不会被释放, 所以其内存是稳定的.
+这导致runtime可以在调度器的层级避免写屏障
 
 User stacks and system stacks
 -----------------------------
@@ -47,6 +57,7 @@ User stacks and system stacks
 Every non-dead G has a *user stack* associated with it, which is what
 user Go code executes on. User stacks start small (e.g., 2K) and grow
 or shrink dynamically.
+每个未死亡的G都有一个用户栈, 用户Go代码在其上执行. 用户栈开始时从2K开始动态增长和缩小
 
 Every M has a *system stack* associated with it (also known as the M's
 "g0" stack because it's implemented as a stub G) and, on Unix
@@ -54,6 +65,8 @@ platforms, a *signal stack* (also known as the M's "gsignal" stack).
 System and signal stacks cannot grow, but are large enough to execute
 runtime and cgo code (8K in a pure Go binary; system-allocated in a
 cgo binary).
+每个M有个系统栈(也被称为g0栈因为其以一个stub G实现)和一个信号栈(Unix平台下).
+这两个栈不能增长, 但已经足够大到执行运行时和cgo代码(纯Go二进制有8K, cgo二进制里是系统分配的)
 
 Runtime code often temporarily switches to the system stack using
 `systemstack`, `mcall`, or `asmcgocall` to perform tasks that must not
@@ -62,18 +75,26 @@ goroutines. Code running on the system stack is implicitly
 non-preemptible and the garbage collector does not scan system stacks.
 While running on the system stack, the current user stack is not used
 for execution.
+runtime代码经常切换到系统栈执行不可被抢占的任务，不能增长用户栈的任务或切换用户goroutine的任务(?),
+使用`systemstack`, `mcall`, `asmcgocall`.
+运行在系统栈上的代码隐式不可被抢占，并且垃圾回收不扫描系统栈.
+当运行在系统栈时, 当前用户栈不用来执行.
 
 `getg()` and `getg().m.curg`
 ----------------------------
 
 To get the current user `g`, use `getg().m.curg`.
+要获取当前用户`g`, 使用`getg().m.curg`.
 
 `getg()` alone returns the current `g`, but when executing on the
 system or signal stacks, this will return the current M's "g0" or
 "gsignal", respectively. This is usually not what you want.
+单独的`getg()`会返回当前`g`, 但当在系统栈或信号栈上执行时，这会返回当前M的g0
+或gsinal.
 
 To determine if you're running on the user stack or the system stack,
 use `getg() == getg().m.curg`.
+使用`getg() == getg().m.curg`可以判断当前是否执行在系统或信号栈上
 
 Error handling and reporting
 ============================
@@ -99,6 +120,7 @@ Synchronization
 The runtime has multiple synchronization mechanisms. They differ in
 semantics and, in particular, in whether they interact with the
 goroutine scheduler or the OS scheduler.
+runtime有多种同步机制. 其语义和是否与goroutine调度器和OS调度器有所区别.
 
 The simplest is `mutex`, which is manipulated using `lock` and
 `unlock`. This should be used to protect shared structures for short
@@ -106,6 +128,9 @@ periods. Blocking on a `mutex` directly blocks the M, without
 interacting with the Go scheduler. This means it is safe to use from
 the lowest levels of the runtime, but also prevents any associated G
 and P from being rescheduled. `rwmutex` is similar.
+最简单的是`mutex`. 这用来在短时间内保护共享数据结构. 阻塞`mutex`不直接与Go调度器
+交流, 直接阻塞M. 这意味着runtime最底层使用是安全的, 使用这个也避免和关联的G和P被
+重新调度.
 
 For one-shot notifications, use `note`, which provides `notesleep` and
 `notewakeup`. Unlike traditional UNIX `sleep`/`wakeup`, `note`s are
@@ -117,6 +142,9 @@ a `note` blocks the M. However, there are different ways to sleep on a
 P, while `notetsleepg` acts like a blocking system call that allows
 the P to be reused to run another G. This is still less efficient than
 blocking the G directly since it consumes an M.
+对于一次性的提醒, 使用`note`. `note`也会阻塞M. 但其仍有两种情况, notesleep
+阻止关联的G和P重调度. `notetsleepg`运行P不被阻塞，继续被重用来执行其他G.
+这仍然不够高效，因为阻塞了一个M.
 
 To interact directly with the goroutine scheduler, use `gopark` and
 `goready`. `gopark` parks the current goroutine—putting it in the
@@ -124,6 +152,9 @@ To interact directly with the goroutine scheduler, use `gopark` and
 schedules another goroutine on the current M/P. `goready` puts a
 parked goroutine back in the "runnable" state and adds it to the run
 queue.
+为了直接与goroutine调度器直接交流, 使用`gopark`和`goready`. `gopark`停止当前
+goroutine, 将其放入等待状态，将其从调度器的运行队列中移除，然后调度另一个goroutine
+在当前M/P上执行.
 
 In summary,
 
