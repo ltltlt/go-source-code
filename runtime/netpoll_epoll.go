@@ -57,7 +57,9 @@ func netpollarm(pd *pollDesc, mode int) {
 }
 
 // polls for ready network connections
+// 轮询准备好的网络连接
 // returns list of goroutines that become runnable
+// 返回可运行的goroutine列表
 func netpoll(block bool) *g {
 	if epfd == -1 {
 		return nil

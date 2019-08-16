@@ -514,6 +514,7 @@ reservationFailed:
 }
 
 // base address for all 0-byte allocations
+// 所有0对象分配用这个基地址
 var zerobase uintptr
 
 // nextFreeFast returns the next free object if one is quickly available.
@@ -583,6 +584,7 @@ func mallocgc(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
 		throw("mallocgc called with gcphase == _GCmarktermination")
 	}
 
+	// 所有大小为0的对象共享一个内存地址
 	if size == 0 {
 		return unsafe.Pointer(&zerobase)
 	}

@@ -2269,6 +2269,7 @@ top:
 
 	// Poll network.
 	// This netpoll is only an optimization before we resort to stealing.
+	// 一个在采取工作窃取前的一个优化
 	// We can safely skip it if there are no waiters or a thread is blocked
 	// in netpoll already. If there is any kind of logical race with that
 	// blocked thread (e.g. it has already returned from netpoll, but does
@@ -2509,7 +2510,7 @@ func injectglist(glist *g) {
 }
 
 // One round of scheduler: find a runnable goroutine and execute it.
-// 一轮调度器的操作: 找到一个可运行的goroutine并执行它
+// 一轮调度: 找到一个状态为runnable的goroutine并执行它
 // Never returns.
 func schedule() {
 	_g_ := getg()
@@ -2568,6 +2569,7 @@ top:
 			throw("schedule: spinning with local work")
 		}
 	}
+	// 上面的步骤没能拿到可运行g, 会尝试更复杂的方法拿g(包括窃取)
 	if gp == nil {
 		// 以上都没找到
 		gp, inheritTime = findrunnable() // blocks until work is available

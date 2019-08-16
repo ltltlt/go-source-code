@@ -142,11 +142,15 @@ type funcval struct {
 	// variable-size, fn-specific data here
 }
 
+// non-empty interface
+// 此interface含method, 如var v Reader = whatever
 type iface struct {
-	tab  *itab
+	tab  *itab // _type的基础上加上一些函数指针
 	data unsafe.Pointer
 }
 
+// empty interface
+// 此interface不含method, 如var v interface{} = whatever
 type eface struct {
 	_type *_type
 	data  unsafe.Pointer

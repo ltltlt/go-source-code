@@ -10,6 +10,9 @@ import (
 	"unsafe"
 )
 
+// 此文件实现了一些println这样的内置函数
+// 编译器发现println这样的语句时，会将其变为调用printlock, print*, printsp, printnl, printunlock这些调用
+
 // The compiler knows that a print of a value of this type
 // should use printhex instead of printuint (decimal).
 type hex uint64
