@@ -3,6 +3,16 @@
 		"path": "$ROOTPATH$/proc.go",
 		"bookmarks": [
 			{
+				"line": 2513,
+				"column": 8,
+				"label": "schedule: go的m一轮调度的操作"
+			}
+		]
+	},
+	{
+		"path": "$ROOTPATH$/proc.go",
+		"bookmarks": [
+			{
 				"line": 500,
 				"column": 0,
 				"label": "go runtime start entry"

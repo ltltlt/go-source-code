@@ -365,9 +365,9 @@ type g struct {
 	atomicstatus uint32
 	stackLock    uint32 // sigprof/scang lock; TODO: fold in to atomicstatus
 	goid         int64
-	waitsince    int64  // approx time when the g become blocked
-	waitreason   string // if status==Gwaiting
-	schedlink    guintptr
+	waitsince    int64    // approx time when the g become blocked
+	waitreason   string   // if status==Gwaiting
+	schedlink    guintptr // schedule里用到, 指向下一个相同类型g的指针(比如runnable队列就是指向下一个runnable g)
 
 	// 抢占位, 如果被设置, 这个G的下一次函数调用, runtime就将其抢占, 放入P的local runq中，等待被下次调用
 	// retake -> preemptone中会设置

@@ -2225,6 +2225,8 @@ func execute(gp *g, inheritTime bool) {
 
 // Finds a runnable goroutine to execute.
 // Tries to steal from other P's, get g from global queue, poll network.
+// 找一个可执行的goroutine执行
+// 尝试从其他p窃取, 从全局队列拿, 从poll network拿到poll到的goroutine(这个goroutine可被执行了)
 func findrunnable() (gp *g, inheritTime bool) {
 	_g_ := getg()
 
@@ -2275,7 +2277,8 @@ top:
 	if netpollinited() && atomic.Load(&netpollWaiters) > 0 && atomic.Load64(&sched.lastpoll) != 0 {
 		if gp := netpoll(false); gp != nil { // non-blocking
 			// netpoll returns list of goroutines linked by schedlink.
-			injectglist(gp.schedlink.ptr())
+			// netpool 返回runnable goroutine的列表，通过g的schedlink链接
+			injectglist(gp.schedlink.ptr()) // 将这个列表的第二个开始的全部插入全局g列表(第一个留作返回, 被这个m占用了)
 			casgstatus(gp, _Gwaiting, _Grunnable)
 			if trace.enabled {
 				traceGoUnpark(gp, 0)
@@ -2506,6 +2509,7 @@ func injectglist(glist *g) {
 }
 
 // One round of scheduler: find a runnable goroutine and execute it.
+// 一轮调度器的操作: 找到一个可运行的goroutine并执行它
 // Never returns.
 func schedule() {
 	_g_ := getg()
@@ -2548,6 +2552,7 @@ top:
 	}
 	if gp == nil {
 		// Check the global runnable queue once in a while to ensure fairness.
+		// 时不时检查全局runnable队列以确保公平
 		// Otherwise two goroutines can completely occupy the local runqueue
 		// by constantly respawning each other.
 		if _g_.m.p.ptr().schedtick%61 == 0 && sched.runqsize > 0 {
@@ -2557,12 +2562,14 @@ top:
 		}
 	}
 	if gp == nil {
+		// 从p的本地队列里拿
 		gp, inheritTime = runqget(_g_.m.p.ptr())
 		if gp != nil && _g_.m.spinning {
 			throw("schedule: spinning with local work")
 		}
 	}
 	if gp == nil {
+		// 以上都没找到
 		gp, inheritTime = findrunnable() // blocks until work is available
 	}
 
@@ -4828,6 +4835,7 @@ func runqget(_p_ *p) (gp *g, inheritTime bool) {
 // Batch is a ring buffer starting at batchHead.
 // Returns number of grabbed goroutines.
 // Can be executed by any P.
+// 从p的runq里取一半g放到batch
 func runqgrab(_p_ *p, batch *[256]guintptr, batchHead uint32, stealRunNextG bool) uint32 {
 	for {
 		h := atomic.Load(&_p_.runqhead) // load-acquire, synchronize with other consumers

@@ -44,7 +44,7 @@ const pollBlockSize = 4 * 1024
 //
 //go:notinheap
 type pollDesc struct {
-	link *pollDesc // in pollcache, protected by pollcache.lock
+	link *pollDesc // in pollcache, protected by pollcache.lock, 形成链式结构
 
 	// The lock protects pollOpen, pollSetDeadline, pollUnblock and deadlineimpl operations.
 	// This fully covers seq, rt and wt variables. fd is constant throughout the PollDesc lifetime.
@@ -57,10 +57,10 @@ type pollDesc struct {
 	fd      uintptr
 	closing bool
 	seq     uintptr // protects from stale timers and ready notifications
-	rg      uintptr // pdReady, pdWait, G waiting for read or nil
+	rg      uintptr // pdReady, pdWait, G waiting for read or nil, 等待读的G或nil
 	rt      timer   // read deadline timer (set if rt.f != nil)
 	rd      int64   // read deadline
-	wg      uintptr // pdReady, pdWait, G waiting for write or nil
+	wg      uintptr // pdReady, pdWait, G waiting for write or nil, 等待写的G或nil
 	wt      timer   // write deadline timer
 	wd      int64   // write deadline
 	user    uint32  // user settable cookie
@@ -373,6 +373,7 @@ func netpollblock(pd *pollDesc, mode int32, waitio bool) bool {
 	return old == pdReady
 }
 
+// 此函数作用是将pd里对应的rg或wg设置为pdReady, 表示这个pd状态是ready, 并且返回原先的g
 func netpollunblock(pd *pollDesc, mode int32, ioready bool) *g {
 	gpp := &pd.rg
 	if mode == 'w' {
@@ -393,10 +394,12 @@ func netpollunblock(pd *pollDesc, mode int32, ioready bool) *g {
 		if ioready {
 			new = pdReady
 		}
+		// 将pollDesc里的rg或wg换成pdReady, 表示这个描述符已经ready
 		if atomic.Casuintptr(gpp, old, new) {
 			if old == pdReady || old == pdWait {
 				old = 0
 			}
+			// 若old是0, 会得到nil
 			return (*g)(unsafe.Pointer(old))
 		}
 	}

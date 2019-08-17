@@ -77,6 +77,7 @@ retry:
 		goto retry
 	}
 	var gp guintptr
+	// 把结果串成一个链表, 先遍历到的放后面
 	for i := int32(0); i < n; i++ {
 		ev := &events[i]
 		if ev.events == 0 {

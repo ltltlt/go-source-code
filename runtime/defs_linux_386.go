@@ -220,7 +220,7 @@ type itimerval struct {
 
 type epollevent struct {
 	events uint32
-	data   [8]byte // to match amd64
+	data   [8]byte // to match amd64, linux下貌似存pollDesc的指针
 }
 
 type sockaddr_un struct {
