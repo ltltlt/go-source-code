@@ -325,7 +325,7 @@ func goready(gp *g, traceskip int) {
 	})
 }
 
-// 新建一个sudog
+// 获得一个sudog, 这个sudog内的成员未初始化
 //go:nosplit
 func acquireSudog() *sudog {
 	// Delicate dance: the semaphore implementation calls

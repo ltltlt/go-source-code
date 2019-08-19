@@ -40,6 +40,7 @@ func netpolldescriptor() uintptr {
 	return uintptr(epfd)
 }
 
+// 注册一个fd, 让fd与这个pd关联
 func netpollopen(fd uintptr, pd *pollDesc) int32 {
 	var ev epollevent
 	ev.events = _EPOLLIN | _EPOLLOUT | _EPOLLRDHUP | _EPOLLET

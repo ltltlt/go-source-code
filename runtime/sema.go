@@ -20,6 +20,8 @@
 // See Mullender and Cox, ``Semaphores in Plan 9,''
 // http://swtch.com/semaphore.pdf
 
+// 用到了树堆(treap=tree+heap)这种数据结构, 其结构相当于随机数据插入的二叉搜索树, 实现简单且能基本实现随机平衡结构
+
 package runtime
 
 import (
@@ -202,6 +204,8 @@ func semroot(addr *uint32) *semaRoot {
 	return &semtable[(uintptr(unsafe.Pointer(addr))>>3)%semTabSize].root
 }
 
+// addr指向一个值(信号量), 如果这个值>0则表示有资源, 直接cas -1即可
+// 如果为0则表示没有资源
 func cansemacquire(addr *uint32) bool {
 	for {
 		v := atomic.Load(addr)
@@ -215,6 +219,7 @@ func cansemacquire(addr *uint32) bool {
 }
 
 // queue adds s to the blocked goroutines in semaRoot.
+// 二叉搜索树插入一个节点
 func (root *semaRoot) queue(addr *uint32, s *sudog, lifo bool) {
 	s.g = getg()
 	s.elem = unsafe.Pointer(addr)

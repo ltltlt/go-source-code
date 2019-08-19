@@ -15,6 +15,7 @@ import (
 // This is a variant of sync.RWMutex, for the runtime package.
 // Like mutex, rwmutex blocks the calling M.
 // It does not interact with the goroutine scheduler.
+// 不与go scheduler交流, 阻塞m
 type rwmutex struct {
 	rLock      mutex    // protects readers, readerPass, writer
 	readers    muintptr // list of pending readers

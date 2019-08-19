@@ -135,9 +135,12 @@ type itimerval struct {
 	it_value    timeval
 }
 
+// 对应的c结构见/usr/include/sys/epoll.h
 type epollevent struct {
 	events uint32
-	data   [8]byte // unaligned uintptr
+	// data字段存用户自定的数据, 与之关联的fd发生事情了, 用户得到这个结构, 通过这个自定义的域来处理事情, go里用来存放pollDesc的指针
+	// 由于指针8字节会按8对齐, 所以用字节数组
+	data [8]byte // unaligned uintptr(未对齐的uintptr)
 }
 
 // created by cgo -cdefs and then converted to Go
