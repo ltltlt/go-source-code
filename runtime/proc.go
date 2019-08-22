@@ -296,6 +296,8 @@ func goschedguarded() {
 // If unlockf returns false, the goroutine is resumed.
 // unlockf must not access this G's stack, as it may be moved between
 // the call to gopark and the call to unlockf.
+// 将当前goroutine设为等待状态然后调用unlockf
+// 如果unlockf返回false, goroutine恢复.
 func gopark(unlockf func(*g, unsafe.Pointer) bool, lock unsafe.Pointer, reason string, traceEv byte, traceskip int) {
 	mp := acquirem()
 	gp := mp.curg
@@ -1197,7 +1199,7 @@ func startTheWorldWithSema(emitTraceEvent bool) int64 {
 //go:nosplit
 //go:nowritebarrierrec
 func mstart() {
-	_g_ := getg()
+	_g_ := getg() // 这里应该会拿到g0
 
 	osStack := _g_.stack.lo == 0
 	if osStack {
@@ -1994,6 +1996,7 @@ func mspinning() {
 }
 
 // Schedules some M to run the p (creates an M if necessary).
+// 调度m来运行p
 // If p==nil, tries to get an idle P, if no idle P's does nothing.
 // May run with m.p==nil, so write barriers are not allowed.
 // If spinning is set, the caller has incremented nmspinning and startm will
@@ -2049,6 +2052,7 @@ func handoffp(_p_ *p) {
 	// findrunnable would return a G to run on _p_.
 
 	// if it has local work, start it straight away
+	// 若有可运行的g, 就直接拿一个m来运行这个p
 	if !runqempty(_p_) || sched.runqsize != 0 {
 		startm(_p_, false)
 		return
@@ -2593,6 +2597,7 @@ top:
 }
 
 // dropg removes the association between m and the current goroutine m->curg (gp for short).
+// 解除m和m->curg的关系
 // Typically a caller sets gp's status away from Grunning and then
 // immediately calls dropg to finish the job. The caller is also responsible
 // for arranging that gp will be restarted using ready at an
@@ -2612,8 +2617,9 @@ func parkunlock_c(gp *g, lock unsafe.Pointer) bool {
 }
 
 // park continuation on g0.
+// 在g0上停止这个g的执行
 func park_m(gp *g) {
-	_g_ := getg()
+	_g_ := getg() // 这个_g_是m的g0
 
 	if trace.enabled {
 		traceGoPark(_g_.m.waittraceev, _g_.m.waittraceskip)
@@ -2693,8 +2699,9 @@ func goexit1() {
 }
 
 // goexit continuation on g0.
+// 在g0上继续
 func goexit0(gp *g) {
-	_g_ := getg()
+	_g_ := getg() // g0
 
 	casgstatus(gp, _Grunning, _Gdead)
 	if isSystemGoroutine(gp) {
@@ -2725,7 +2732,7 @@ func goexit0(gp *g) {
 	// Note that gp's stack scan is now "valid" because it has no
 	// stack.
 	gp.gcscanvalid = true
-	dropg()
+	dropg() // m.curg似乎永远不会指向g0, 每次schedule都是指向一个运行的用户g, 这里解除m和curg的关系
 
 	if _g_.m.lockedInt != 0 {
 		print("invalid m->lockedInt = ", _g_.m.lockedInt, "\n")
@@ -4310,6 +4317,7 @@ func sysmon() {
 			asmcgocall(*cgo_yield, nil)
 		}
 		// poll network if not polled for more than 10ms
+		// 如果10ms没netpool了, 执行netpool, 定时拉事件, 让一些goroutine可运行, 否则有些goroutine注册了netpoll但永远没法恢复执行, m的schedule里也会时不时执行netpoll
 		lastpoll := int64(atomic.Load64(&sched.lastpoll))
 		now := nanotime()
 		if netpollinited() && lastpoll != 0 && lastpoll+10*1000*1000 < now {

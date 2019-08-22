@@ -140,6 +140,7 @@ type note struct {
 type funcval struct {
 	fn uintptr
 	// variable-size, fn-specific data here
+	// 闭包能引用到的变量的地址就放这
 }
 
 // non-empty interface
@@ -311,7 +312,7 @@ type sudog struct {
 
 	acquiretime int64
 	releasetime int64
-	ticket      uint32
+	ticket      uint32 // treap中的优先级, 插入一个节点时随机生成
 	parent      *sudog // semaRoot binary tree
 	waitlink    *sudog // g.waiting list or semaRoot
 	waittail    *sudog // semaRoot

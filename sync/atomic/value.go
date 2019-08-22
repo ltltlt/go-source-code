@@ -42,7 +42,8 @@ func (v *Value) Load() (x interface{}) {
 // Store sets the value of the Value to x.
 // All calls to Store for a given Value must use values of the same concrete type.
 // Store of an inconsistent type panics, as does Store(nil).
-// 一个Value中存的内容必须是相同类型的
+// 一个Value中存的内容必须是相同类型的, 实际上也能实现为可存放不同类型的
+// 唯一竞态是两个goroutine同时Store, 可能导致类型和数据不匹配, 通过引入type的第三种状态来解决
 func (v *Value) Store(x interface{}) {
 	if x == nil {
 		panic("sync/atomic: store of nil value into Value")
@@ -76,7 +77,6 @@ func (v *Value) Store(x interface{}) {
 		}
 		// First store completed. Check type and overwrite data.
 		if typ != xp.typ {
-			// 即使recover也不会不一致，因为只修改data pointer
 			panic("sync/atomic: store of inconsistently typed value into Value")
 		}
 		StorePointer(&vp.data, xp.data)

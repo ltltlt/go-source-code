@@ -26,6 +26,7 @@ func runtime_Semrelease(s *uint32, handoff bool)
 
 // Approximation of notifyList in runtime/sema.go. Size and alignment must
 // agree.
+// runtime/sema.go/notifyList的相似物品
 type notifyList struct {
 	wait   uint32
 	notify uint32
@@ -50,6 +51,7 @@ func runtime_notifyListNotifyOne(l *notifyList)
 func runtime_notifyListCheck(size uintptr)
 func init() {
 	var n notifyList
+	// 检查这里的notifyList和runtime/sema.go里的是否一样长
 	runtime_notifyListCheck(unsafe.Sizeof(n))
 }
 
@@ -58,6 +60,7 @@ func init() {
 func runtime_canSpin(i int) bool
 
 // runtime_doSpin does active spinning.
+// 底层是runtime.sync_runtime_doSpin, 基本就是一个循环, 执行pause指令一定次数
 func runtime_doSpin()
 
 func runtime_nanotime() int64

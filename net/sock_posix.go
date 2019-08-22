@@ -75,6 +75,7 @@ func socket(ctx context.Context, net string, family, sotype, proto int, ipv6only
 	// the other connection holders.
 
 	if laddr != nil && raddr == nil {
+		// 此时是打开一个listener
 		switch sotype {
 		case syscall.SOCK_STREAM, syscall.SOCK_SEQPACKET:
 			if err := fd.listenStream(laddr, listenerBacklog); err != nil {

@@ -130,6 +130,7 @@ func (fd *FD) SetBlocking() error {
 const maxRW = 1 << 30
 
 // Read implements io.Reader.
+// 只读一次, 读多少返多少
 func (fd *FD) Read(p []byte) (int, error) {
 	if err := fd.readLock(); err != nil {
 		return 0, err
@@ -153,6 +154,7 @@ func (fd *FD) Read(p []byte) (int, error) {
 		n, err := syscall.Read(fd.Sysfd, p)
 		if err != nil {
 			n = 0
+			// fd关联到文件或socket且被标记为O_NONBLOCK(go的行为)且读会阻塞时返回EAGAIN或EWOULDBLOCK(在linux下EWOULDBLOCK是EAGAIN的alias), see `man 2 read`
 			if err == syscall.EAGAIN && fd.pd.pollable() {
 				if err = fd.pd.waitRead(fd.isFile); err == nil {
 					continue

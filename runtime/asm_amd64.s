@@ -84,7 +84,7 @@ GLOBL _rt0_amd64_lib_argc<>(SB),NOPTR, $8
 DATA _rt0_amd64_lib_argv<>(SB)/8, $0
 GLOBL _rt0_amd64_lib_argv<>(SB),NOPTR, $8
 
-TEXT runtime·rt0_go(SB),NOSPLIT,$0
+TEXT runtime·rt0_go(SB),NOSPLIT,$0	// 入口
 	// copy arguments forward on an even stack
 	MOVQ	DI, AX		// argc
 	MOVQ	SI, BX		// argv
@@ -302,12 +302,13 @@ TEXT runtime·gosave(SB), NOSPLIT, $0-8
 
 // void gogo(Gobuf*)
 // restore state from Gobuf; longjmp
+// 从gobuf中恢复状态, gobuf一般位于g里
 TEXT runtime·gogo(SB), NOSPLIT, $16-8
-	MOVQ	buf+0(FP), BX		// gobuf
+	MOVQ	buf+0(FP), BX		// gobuf, 将0+FP(第一个参数)指向的内容绑定到buf变量上, 并存到BX寄存器里
 	MOVQ	gobuf_g(BX), DX
 	MOVQ	0(DX), CX		// make sure g != nil
-	get_tls(CX)
-	MOVQ	DX, g(CX)
+	get_tls(CX)	// tls: thread local storage
+	MOVQ	DX, g(CX)	// g存到thread local storage里
 	MOVQ	gobuf_sp(BX), SP	// restore SP
 	MOVQ	gobuf_ret(BX), AX
 	MOVQ	gobuf_ctxt(BX), DX

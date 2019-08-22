@@ -19,6 +19,7 @@ func add(p unsafe.Pointer, x uintptr) unsafe.Pointer {
 func getg() *g
 
 // mcall switches from the g to the g0 stack and invokes fn(g),
+// 从g栈切换到g0栈来执行fn(g)
 // where g is the goroutine that made the call.
 // mcall saves g's current PC/SP in g->sched so that it can be restored later.
 // It is up to fn to arrange for that later execution, typically by recording
@@ -35,7 +36,7 @@ func getg() *g
 func mcall(fn func(*g))
 
 // systemstack runs fn on a system stack.
-// 在系统栈上执行fn
+// 在系统栈(os thread stack)上执行fn
 // If systemstack is called from the per-OS-thread (g0) stack, or
 // if systemstack is called from the signal handling (gsignal) stack,
 // systemstack calls fn directly and returns.
@@ -133,6 +134,8 @@ func noescape(p unsafe.Pointer) unsafe.Pointer {
 }
 
 func cgocallback(fn, frame unsafe.Pointer, framesize, ctxt uintptr)
+
+// 根据gobuf恢复寄存器的值并跳转到g的继续执行地址
 func gogo(buf *gobuf)
 func gosave(buf *gobuf)
 

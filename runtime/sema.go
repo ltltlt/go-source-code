@@ -20,7 +20,7 @@
 // See Mullender and Cox, ``Semaphores in Plan 9,''
 // http://swtch.com/semaphore.pdf
 
-// 用到了树堆(treap=tree+heap)这种数据结构, 其结构相当于随机数据插入的二叉搜索树, 实现简单且能基本实现随机平衡结构
+// 用到了树堆(treap=tree+heap)这种数据结构, 其结构相当于随机数据插入的二叉搜索树, 实现简单且能基本实现随机平衡结构, 这里用最小堆
 
 package runtime
 
@@ -295,7 +295,7 @@ func (root *semaRoot) queue(addr *uint32, s *sudog, lifo bool) {
 		if s.parent.prev == s {
 			root.rotateRight(s.parent)
 		} else {
-			if s.parent.next != s {
+			if s.parent.next != s { // 用一些断言保证树没什么问题
 				panic("semaRoot queue")
 			}
 			root.rotateLeft(s.parent)
@@ -307,6 +307,7 @@ func (root *semaRoot) queue(addr *uint32, s *sudog, lifo bool) {
 // in semaRoot blocked on addr.
 // If the sudog was being profiled, dequeue returns the time
 // at which it was woken up as now. Otherwise now is 0.
+// 如果这个addr里有多个元素, 则只dequeue第一个
 func (root *semaRoot) dequeue(addr *uint32) (found *sudog, now int64) {
 	ps := &root.treap
 	s := *ps
@@ -328,6 +329,7 @@ Found:
 		now = cputicks()
 	}
 	if t := s.waitlink; t != nil {
+		// 有多于一个元素, 则树不用修改, 改这个节点链表即可
 		// Substitute t, also waiting on addr, for s in root tree of unique addrs.
 		*ps = t
 		t.ticket = s.ticket
@@ -449,15 +451,18 @@ func (root *semaRoot) rotateRight(y *sudog) {
 }
 
 // notifyList is a ticket-based notification list used to implement sync.Cond.
+// 基于ticket的提醒队列, 用来实现sync.Cond
 //
 // It must be kept in sync with the sync package.
 type notifyList struct {
 	// wait is the ticket number of the next waiter. It is atomically
 	// incremented outside the lock.
+	// 下一个等待者的ticket number, 总是>=notify
 	wait uint32
 
 	// notify is the ticket number of the next waiter to be notified. It can
 	// be read outside the lock, but is only written to with lock held.
+	// 这是下一个会被notify的waiter的ticket number
 	//
 	// Both wait & notify can wrap around, and such cases will be correctly
 	// handled as long as their "unwrapped" difference is bounded by 2^31.
@@ -494,6 +499,7 @@ func notifyListWait(l *notifyList, t uint32) {
 	lock(&l.lock)
 
 	// Return right away if this ticket has already been notified.
+	// why not just t < l.notify
 	if less(t, l.notify) {
 		unlock(&l.lock)
 		return

@@ -18,7 +18,7 @@ func runtimeNano() int64
 
 func runtime_pollServerInit()
 func runtime_pollServerDescriptor() uintptr
-func runtime_pollOpen(fd uintptr) (uintptr, int)
+func runtime_pollOpen(fd uintptr) (uintptr, int) // 返回第一个参数是runtime.pollDesc的指针
 func runtime_pollClose(ctx uintptr)
 func runtime_pollWait(ctx uintptr, mode int) int
 func runtime_pollWaitCanceled(ctx uintptr, mode int) int
@@ -27,14 +27,14 @@ func runtime_pollSetDeadline(ctx uintptr, d int64, mode int)
 func runtime_pollUnblock(ctx uintptr)
 
 type pollDesc struct {
-	runtimeCtx uintptr
+	runtimeCtx uintptr // runtime.pollDesc的指针
 }
 
 var serverInit sync.Once
 
 func (pd *pollDesc) init(fd *FD) error {
 	serverInit.Do(runtime_pollServerInit)
-	ctx, errno := runtime_pollOpen(uintptr(fd.Sysfd))
+	ctx, errno := runtime_pollOpen(uintptr(fd.Sysfd)) // 在netpoll上注册这个fd
 	if errno != 0 {
 		if ctx != 0 {
 			runtime_pollUnblock(ctx)

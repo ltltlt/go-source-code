@@ -1,3 +1,4 @@
 {
-    "go.useLanguageServer": false
+    "go.useLanguageServer": false,
+    "go.goroot": "/home/ty-l1/go/goroot"
 }

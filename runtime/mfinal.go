@@ -483,6 +483,10 @@ func findObject(v unsafe.Pointer) (s *mspan, x unsafe.Pointer, n uintptr) {
 // Without the KeepAlive call, the finalizer could run at the start of
 // syscall.Read, closing the file descriptor before syscall.Read makes
 // the actual system call.
+// 没有这个函数, 编译器可能自作聪明地进行优化, 认为p没用了, 就重用这个栈slot, 即使p理论上理论上还存在
+// 这个函数就叫编译器别自作聪明把这个变量消除了当这个变量还在栈上时
+// 我想, 大多数时间这个函数都是不必要的, 少数有用到finalizer才可能需要, 这经常出现在网络或文件描述符中
+// https://utcc.utoronto.ca/~cks/space/blog/programming/GoRuntimeKeepAliveNotes
 func KeepAlive(x interface{}) {
 	// Introduce a use of x that the compiler can't eliminate.
 	// This makes sure x is alive on entry. We need x to be alive
