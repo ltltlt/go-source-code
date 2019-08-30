@@ -417,7 +417,10 @@ func releaseSudog(s *sudog) {
 }
 
 // funcPC returns the entry PC of the function f.
+// 返回函数的入口地址
 // It assumes that f is a func value. Otherwise the behavior is undefined.
+// 假设f是个func value(funcval). 否则行为是未定义的
+// 实际上f是个eface, 结构第一个成员是个指针, 第二个成员是*funcval
 // CAREFUL: In programs with plugins, funcPC can return different values
 // for the same function (because there are actually multiple copies of
 // the same function in the address space). To be safe, don't use the

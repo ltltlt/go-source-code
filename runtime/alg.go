@@ -38,6 +38,7 @@ const (
 type typeAlg struct {
 	// function for hashing objects of this type
 	// (ptr to object, seed) -> hash
+	// 用于hash这个类型的函数, 第二个参数是随机数种子, 这可以减少碰撞概率
 	hash func(unsafe.Pointer, uintptr) uintptr
 	// function for comparing objects of this type
 	// (ptr to object A, ptr to object B) -> ==?

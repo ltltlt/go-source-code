@@ -140,11 +140,12 @@ type note struct {
 type funcval struct {
 	fn uintptr
 	// variable-size, fn-specific data here
-	// 闭包能引用到的变量的地址就放这
+	// 闭包能引用到的变量的地址就放这, 还有binded method引用到的receiver地址也放这
 }
 
 // non-empty interface
 // 此interface含method, 如var v Reader = whatever
+// tab 里包含一些实际类型和接口类型
 type iface struct {
 	tab  *itab // _type的基础上加上一些函数指针
 	data unsafe.Pointer
@@ -152,6 +153,7 @@ type iface struct {
 
 // empty interface
 // 此interface不含method, 如var v interface{} = whatever
+// 故只要存实际类型和指针即可
 type eface struct {
 	_type *_type
 	data  unsafe.Pointer

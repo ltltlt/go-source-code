@@ -422,6 +422,9 @@ func printpanics(p *_panic) {
 }
 
 // The implementation of the predeclared function panic.
+// 预声明函数panic的实现
+// 编译器会将panic转为对此的调用
+// 会处理defer函数等
 func gopanic(e interface{}) {
 	gp := getg()
 	if gp.m.curg != gp {

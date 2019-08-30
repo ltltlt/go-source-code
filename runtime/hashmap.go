@@ -79,12 +79,14 @@ const (
 	// data offset should be the size of the bmap struct, but needs to be
 	// aligned correctly. For amd64p32 this means 64-bit alignment
 	// even though pointers are 32 bit.
+	// 存bmap中kv位置的偏移
 	dataOffset = unsafe.Offsetof(struct {
 		b bmap
 		v int64
 	}{}.v)
 
 	// Possible tophash values. We reserve a few possibilities for special marks.
+	// 可能的tophash值, 保留一部分可能值用于特殊标记
 	// Each bucket (including its overflow buckets, if any) will have either all or none of its
 	// entries in the evacuated* states (except during the evacuate() method, which only happens
 	// during map writes and thus no one else can observe the map during that time).
@@ -114,6 +116,7 @@ type hmap struct {
 	noverflow uint16 // approximate number of overflow buckets; see incrnoverflow for details
 	hash0     uint32 // hash seed
 
+	// bmap的数组, 有2^B个元素
 	buckets    unsafe.Pointer // array of 2^B Buckets. may be nil if count==0.
 	oldbuckets unsafe.Pointer // previous bucket array of half the size, non-nil only when growing
 	nevacuate  uintptr        // progress counter for evacuation (buckets less than this have been evacuated)
@@ -143,12 +146,16 @@ type bmap struct {
 	// tophash generally contains the top byte of the hash value
 	// for each key in this bucket. If tophash[0] < minTopHash,
 	// tophash[0] is a bucket evacuation state instead.
+	// 这个数组存key的hash值的高8位, 这个值不会<minTopHash(若小于会+这个值)
+	// 如果tophash[0] < minTopHash, 则tophash[0]是这个bucket迁移的状态
 	tophash [bucketCnt]uint8
 	// Followed by bucketCnt keys and then bucketCnt values.
+	// 后面是bucketCnt个key和同样数目的value
 	// NOTE: packing all the keys together and then all the values together makes the
 	// code a bit more complicated than alternating key/value/key/value/... but it allows
 	// us to eliminate padding which would be needed for, e.g., map[int64]int8.
 	// Followed by an overflow pointer.
+	// 最后跟着一个overflow指针(即这个bucket存的大小>bucketCnt时), 指向另一个bmap
 }
 
 // A hash iteration structure.
@@ -186,6 +193,7 @@ func bucketMask(b uint8) uintptr {
 }
 
 // tophash calculates the tophash value for hash.
+// 拿到一个hash值的高8位
 func tophash(hash uintptr) uint8 {
 	top := uint8(hash >> (sys.PtrSize*8 - 8))
 	if top < minTopHash {
@@ -207,6 +215,7 @@ func (b *bmap) setoverflow(t *maptype, ovf *bmap) {
 	*(**bmap)(add(unsafe.Pointer(b), uintptr(t.bucketsize)-sys.PtrSize)) = ovf
 }
 
+// 返回key的指针
 func (b *bmap) keys() unsafe.Pointer {
 	return add(unsafe.Pointer(b), dataOffset)
 }
@@ -237,6 +246,7 @@ func (h *hmap) incrnoverflow() {
 	}
 }
 
+// 一个bmap(bucket) overflow了
 func (h *hmap) newoverflow(t *maptype, b *bmap) *bmap {
 	var ovf *bmap
 	if h.extra != nil && h.extra.nextOverflow != nil {
@@ -377,7 +387,7 @@ func mapaccess1(t *maptype, h *hmap, key unsafe.Pointer) unsafe.Pointer {
 				continue
 			}
 			k := add(unsafe.Pointer(b), dataOffset+i*uintptr(t.keysize))
-			if t.indirectkey {
+			if t.indirectkey { // 如果key是指针，我想会正确
 				k = *((*unsafe.Pointer)(k))
 			}
 			if alg.equal(key, k) {
@@ -485,6 +495,7 @@ func mapaccessK(t *maptype, h *hmap, key unsafe.Pointer) (unsafe.Pointer, unsafe
 	return nil, nil
 }
 
+// 找不到返回zero
 func mapaccess1_fat(t *maptype, h *hmap, key, zero unsafe.Pointer) unsafe.Pointer {
 	v := mapaccess1(t, h, key)
 	if v == unsafe.Pointer(&zeroVal[0]) {
@@ -537,9 +548,9 @@ again:
 	b := (*bmap)(unsafe.Pointer(uintptr(h.buckets) + bucket*uintptr(t.bucketsize)))
 	top := tophash(hash)
 
-	var inserti *uint8
-	var insertk unsafe.Pointer
-	var val unsafe.Pointer
+	var inserti *uint8         // 更新点(tophash)
+	var insertk unsafe.Pointer // 更新点(key)
+	var val unsafe.Pointer     // 更新点(value)
 	for {
 		for i := uintptr(0); i < bucketCnt; i++ {
 			if b.tophash[i] != top {
@@ -864,7 +875,7 @@ next:
 
 func makeBucketArray(t *maptype, b uint8) (buckets unsafe.Pointer, nextOverflow *bmap) {
 	base := bucketShift(b)
-	nbuckets := base
+	nbuckets := base // 实际分配数目
 	// For small b, overflow buckets are unlikely.
 	// Avoid the overhead of the calculation.
 	if b >= 4 {
@@ -879,6 +890,7 @@ func makeBucketArray(t *maptype, b uint8) (buckets unsafe.Pointer, nextOverflow 
 		}
 	}
 	buckets = newarray(t.bucket, int(nbuckets))
+	// 多分配的一些放到nextOverflow里
 	if base != nbuckets {
 		// We preallocated some overflow buckets.
 		// To keep the overhead of tracking these overflow buckets to a minimum,

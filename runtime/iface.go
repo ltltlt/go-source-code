@@ -278,6 +278,7 @@ func panicnildottype(want *_type) {
 // The convXXX functions succeed on a nil input, whereas the assertXXX
 // functions fail on a nil input.
 
+// 将一个普通类型转为interface{}
 func convT2E(t *_type, elem unsafe.Pointer) (e eface) {
 	if raceenabled {
 		raceReadObjectPC(t, elem, getcallerpc(), funcPC(convT2E))
@@ -285,6 +286,7 @@ func convT2E(t *_type, elem unsafe.Pointer) (e eface) {
 	if msanenabled {
 		msanread(elem, t.size)
 	}
+	// 发生了值拷贝
 	x := mallocgc(t.size, t, true)
 	// TODO: We allocate a zeroed object only to overwrite it with actual data.
 	// Figure out how to avoid zeroing. Also below in convT2Eslice, convT2I, convT2Islice.
@@ -303,6 +305,7 @@ func convT2E16(t *_type, elem unsafe.Pointer) (e eface) {
 	}
 	var x unsafe.Pointer
 	if *(*uint16)(elem) == 0 {
+		// 这里能减少内存分配回收, 这也是为什么interface的data unaddressable
 		x = unsafe.Pointer(&zeroVal[0])
 	} else {
 		x = mallocgc(2, t, false)
@@ -403,6 +406,7 @@ func convT2Enoptr(t *_type, elem unsafe.Pointer) (e eface) {
 	return
 }
 
+// 将一个普通类型转为interface{...}
 func convT2I(tab *itab, elem unsafe.Pointer) (i iface) {
 	t := tab._type
 	if raceenabled {
@@ -548,6 +552,7 @@ func convI2I(inter *interfacetype, i iface) (r iface) {
 	return
 }
 
+// type assert
 func assertI2I(inter *interfacetype, i iface) (r iface) {
 	tab := i.tab
 	if tab == nil {
